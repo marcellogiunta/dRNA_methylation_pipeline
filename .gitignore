@@ -1,0 +1,7 @@
+results/
+logs/
+*.bam
+*.bai
+*.bed
+*.pod5
+*.sif
