@@ -1,0 +1,70 @@
+# cluster.yaml — pipeline DOGME-style SGE
+
+__default__:
+  tmem: "4G"
+  h_vmem: "4G"
+  h_rt: "02:00:00"
+  submission_string: ""
+
+
+dorado_basecall:
+  tmem: "120G"
+  h_vmem: "120G"
+  h_rt: "40:00:00"
+  submission_string: "-pe gpu 1 -R y -l gpu=true"
+
+merge_unaligned_bam:
+  tmem: "32G"
+  h_vmem: "32G"
+  h_rt: "05:00:00"
+  submission_string: ""
+
+
+minimap2_align:
+  tmem: "100G"
+  h_vmem: "100G"
+  h_rt: "12:00:00"
+  submission_string: ""
+
+separate_strands:
+  tmem: "16G"
+  h_vmem: "16G"
+  h_rt: "04:00:00"
+  submission_string: ""
+
+sample_probs:
+  tmem: "16G"
+  h_vmem: "16G"
+  h_rt: "02:00:00"
+  submission_string: ""
+
+modkit_pileup:
+  tmem: "64G"
+  h_vmem: "64G"
+  h_rt: "24:00:00"
+  submission_string: "-pe smp 4 -R y"
+
+modkit_summary:
+  tmem: "8G"
+  h_vmem: "8G"
+  h_rt: "02:00:00"
+  submission_string: ""
+
+filterbed:
+  tmem: "4G"
+  h_vmem: "4G"
+  h_rt: "01:00:00"
+  submission_string: ""
+
+splitbed:
+  tmem: "4G"
+  h_vmem: "4G"
+  h_rt: "01:00:00"
+  submission_string: ""
+
+
+qc_report:
+  tmem: "8G"
+  h_vmem: "8G"
+  h_rt: "02:00:00"
+  submission_string: ""
