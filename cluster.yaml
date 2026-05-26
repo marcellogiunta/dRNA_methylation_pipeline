@@ -6,6 +6,11 @@ __default__:
   h_rt: "02:00:00"
   submission_string: ""
 
+dorado_models_download:
+  tmem: "4G"
+  h_vmem: "4G"
+  h_rt: "01:00:00"
+  submission_string: ""
 
 dorado_basecall:
   tmem: "120G"
