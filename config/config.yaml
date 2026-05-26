@@ -1,31 +1,62 @@
+# config/config.yaml — dRNA methylation pipeline
+# ================================================================
+# Edit the paths below to match your system.
+#
+# Modification selection and modkit pileup thresholds are set
+# directly in the Snakefile (rule modkit_pileup, marked <-- EDIT).
+#
+# Only filterbed thresholds (min_coverage, mod_pct) are here
+# because they are meant to be changed without touching the code.
+# ================================================================
 
-# Container Singularity with Dorado 
-dorado_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-dorado-1.4.0.sif"  
+# ================================================================
+# SINGULARITY
+# ================================================================
+singularity_bind: "/SAN/vyplab:/SAN/vyplab"
 
-# Dorado Model  
-# sup@v5.3.0 + all the available RNA mods (MODIFY AT YOUR CONVENIENCE)
-dorado_model: "sup@v5.3.0,inosine_m6A_2OmeA,m5C_2OmeC,pseU_2OmeU,2OmeG"
+dorado_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-dorado-1.4.0.sif"
+modkit_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/ontresearch-modkit-0.6.1.sif"
 
-modkit_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-modkit-0.6.1.sif"  
+# ================================================================
+# DORADO MODEL
+# Full model names required when using --models-directory.
+# ================================================================
+dorado_model: "rna004_130bps_sup@v5.3.0,rna004_130bps_sup@v5.3.0_inosine_m6A_2OmeA@v1,rna004_130bps_sup@v5.3.0_m5C_2OmeC@v1,rna004_130bps_sup@v5.3.0_pseU_2OmeU@v1,rna004_130bps_sup@v5.3.0_2OmeG@v1"
 
+# Local directory for pre-downloaded dorado models.
+# Populated automatically by rule dorado_models_download.
+dorado_models_dir: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_models"
 
-# Reference genome
-genome: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/GRCh38.p14.genome.fa"
+# ================================================================
+# REFERENCE FILES
+# ================================================================
+genome:  "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/GRCh38.p14.genome.fa"
+gtf:     "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.primary_assembly.annotation.gtf"
 
-# GTF  Gencode 
-gtf: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.primary_assembly.annotation.gtf"   # <-- MODIFICA
+# Junction BED for splice-aware alignment (pre-existing).
+# Generate once with: paftools.js gff2bed annotation.gtf > annotation.junc.bed
+gtf_bed: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.basic.annotation.junc.bed"
 
-# Junc BED
-gtf_bed: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/references/gencode.v49.basic.annotation.junc.bed"
+# ================================================================
+# FILTERBED THRESHOLDS
+# Applied a posteriori on the raw modkit pileup BED.
+# Change these values and re-run filterbed without re-running pileup:
+#   snakemake --forcerun filterbed
+#
+# min_coverage: minimum number of valid reads covering a site
+#               (col 5 of modkit pileup BED)
+# mod_pct:      minimum percentage of modified reads per site
+#               (col 11 of modkit pileup BED, range 0-100)
+# ================================================================
+min_coverage: 5
+mod_pct:      5
 
-
-
-# Modkit Thresholds
-filter_threshold: 0.5   # calling canonical bases
-min_coverage: 3         # min coverage
-mod_pct: 5              # % methylation
-
-# Samples: nome → folders cointaining  .pod5 files
+# ================================================================
+# SAMPLES
+# Format: sample_name: /path/to/pod5/directory/
+# Pod5 files must be organised in separate directories per sample.
+# ================================================================
 samples:
   knockout_01: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20240822_1308_P2S-02348-B_PBA04080_06f9e9d5/pod5/"
-
+  # knockout_02: "/path/to/knockout_02/pod5/"
+  # control_01:  "/path/to/control_01/pod5/"
