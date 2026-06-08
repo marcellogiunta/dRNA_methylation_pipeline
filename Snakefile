@@ -6,12 +6,12 @@ from pathlib import Path
 #
 #   dRNA METHYLATION PIPELINE — Snakemake / SGE cluster
 #   Based on DOGME (nanoporeModule.nf v1.2.3)
-#   + Laurens Lambrechts approach (dorado v1.4.0 + junc.bed)
 #
 #   WORKFLOW:
 #   0.  dorado_models_download — download dorado models once
 #   1.  dorado_basecall        — basecall each pod5 → unaligned BAM
 #   2.  merge_unaligned_bam    — merge BAMs per sample
+#   FROM THIS STEP ONWARD THE PIPELINE PROCESSES IN PARALLEL GENOME AND TRANSCRIPTOME ALIGNED BAM FILES
 #   3.  minimap2_align         — splice-aware alignment
 #   4.  sample_probs           — modkit sample-probs QC
 #   5.  modkit_pileup          — call modifications
@@ -65,16 +65,31 @@ JOB_POD5 = {
 # =========================================================
 rule all:
     input:
-        expand("results/bedMethyl/{sample}.m5C.filtered.bed",      sample=SAMPLES),
-        expand("results/bedMethyl/{sample}.m6A.filtered.bed",      sample=SAMPLES),
-        expand("results/bedMethyl/{sample}.inosine.filtered.bed",  sample=SAMPLES),
-        expand("results/bedMethyl/{sample}.pseU.filtered.bed",     sample=SAMPLES),
-        expand("results/bedMethyl/{sample}.2OmeC.filtered.bed",    sample=SAMPLES),
-        expand("results/bedMethyl/{sample}.2OmeA.filtered.bed",    sample=SAMPLES),
-        expand("results/bedMethyl/{sample}.2OmeG.filtered.bed",    sample=SAMPLES),
-        expand("results/bedMethyl/{sample}.2OmeU.filtered.bed",    sample=SAMPLES),
-        expand("results/sample_probs/{sample}/probabilities.tsv",  sample=SAMPLES),
-        expand("results/qc/{sample}.qc_summary.txt",               sample=SAMPLES)
+        ##GENOME ALIGNED
+        expand("results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed",      sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed",      sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed",     sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed",  sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed",       sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed",       sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed",       sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed",       sample=SAMPLES),
+        expand("results/sample_probs_genome/{sample}/probabilities.tsv",  sample=SAMPLES),
+        expand("results/qc_genome/{sample}.qc_summary.txt",               sample=SAMPLES),
+        
+        ##TRANSCRIPTOME ALIGNED
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed",      sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed",      sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed",     sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed",  sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed",       sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed",       sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed",       sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed",       sample=SAMPLES),
+        expand("results/sample_probs_transcriptome/{sample}/probabilities.tsv",  sample=SAMPLES),
+        expand("results/qc_transcriptome/{sample}.qc_summary.txt",               sample=SAMPLES)
+
+
 
 
 # =========================================================
@@ -219,11 +234,11 @@ rule minimap2_align:
         juncbed=config["gtf_bed"]
 
     output:
-        bam="results/bams/{sample}/{sample}.bam",
-        bai="results/bams/{sample}/{sample}.bam.bai"
+        bam="results/bams_genome/{sample}/{sample}.bam",
+        bai="results/bams_genome/{sample}/{sample}.bam.bai"
 
     log:
-        "logs/minimap2/{sample}.log"
+        "logs/minimap2_genome/{sample}.log"
 
     conda:
         "env/minimap.yaml"
@@ -232,13 +247,14 @@ rule minimap2_align:
 
     shell:
         """
-        mkdir -p results/bams/{wildcards.sample} logs/minimap2
+        mkdir -p results/bams_genome/{wildcards.sample} logs/minimap2_genome
 
         samtools bam2fq --threads {threads} -T MM,ML,pt \
             {input.bam} 2>> {log} | \
         minimap2 \
             -ax splice \
             -uf \
+            -k14 \
             -G 500000 \
             -L \
             --secondary=no \
@@ -262,29 +278,30 @@ rule minimap2_align:
 # =========================================================
 rule sample_probs:
     input:
-        bam="results/bams/{sample}/{sample}.bam",
-        bai="results/bams/{sample}/{sample}.bam.bai"
+        bam="results/bams_genome/{sample}/{sample}.bam",
+        bai="results/bams_genome/{sample}/{sample}.bam.bai"
 
     output:
-        probs      ="results/sample_probs/{sample}/probabilities.tsv",
-        thresholds ="results/sample_probs/{sample}/thresholds.tsv",
-        counts_html="results/sample_probs/{sample}/counts.html",
-        prop_html  ="results/sample_probs/{sample}/proportion.html"
+        probs      ="results/sample_probs_genome/{sample}/probabilities.tsv",
+        thresholds ="results/sample_probs_genome/{sample}/thresholds.tsv",
+        counts_html="results/sample_probs_genome/{sample}/counts.html",
+        prop_html  ="results/sample_probs_genome/{sample}/proportion.html"
 
     log:
-        "logs/sample_probs/{sample}.log"
+        "logs/sample_probs_genome/{sample}.log"
 
     params:
-        outdir="results/sample_probs/{sample}"
+        outdir="results/sample_probs_genome/{sample}"
 
-    threads: 4
+    threads: 1
 
     shell:
         """
-        mkdir -p {params.outdir} logs/sample_probs
+        mkdir -p {params.outdir} logs/sample_probs_genome
 
-        singularity exec -B {BIND} {MODKIT_SIF} \
-        modkit sample-probs \
+        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        {DORADO_SIF} \
+        {MODKIT} sample-probs \
             --hist \
             --threads {threads} \
             --out-dir {params.outdir} \
@@ -324,58 +341,64 @@ rule sample_probs:
 # =========================================================
 rule modkit_pileup:
     input:
-        bam="results/bams/{sample}/{sample}.bam",
-        bai="results/bams/{sample}/{sample}.bam.bai"
+        bam="results/bams_genome/{sample}/{sample}.bam",
+        bai="results/bams_genome/{sample}/{sample}.bam.bai"
 
     output:
-        bed="results/modkit/{sample}.raw.bed"
+        bed="results/modkit_genome/{sample}.raw.bed"
 
     log:
-        "logs/modkit/{sample}.log"
+        "logs/modkit_genome/{sample}.log"
 
-    threads: 8
+    params:
+        outdir="results/modkit_genome",
+        genome =config["genome"]
+
+    threads: 1
 
     shell:
         """
-        mkdir -p results/modkit logs/modkit
+        mkdir -p {params.outdir} logs/modkit_genome
 
-        singularity exec -B {BIND} {MODKIT_SIF} \
-        modkit pileup \
+        
+        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        {DORADO_SIF} \
+        {MODKIT} pileup \
+            --mod-threshold m:0.99 \
+            --modified-bases C:m \
+            --reference {params.genome} \
             -t {threads} \
-            --filter-threshold 0.7 \
-            --mod-thresholds m:0.99 \
             {input.bam} {output.bed} \
             --log-filepath {log}
         """
-
 
 # =========================================================
 # 6. MODKIT SUMMARY (QC)
 # =========================================================
 rule modkit_summary:
     input:
-        bam="results/bams/{sample}/{sample}.bam",
-        bai="results/bams/{sample}/{sample}.bam.bai"
+        bam="results/bams_genome/{sample}/{sample}.bam",
+        bai="results/bams_genome/{sample}/{sample}.bam.bai"
 
     output:
-        tsv="results/modkit/{sample}.summary.tsv"
+        tsv="results/modkit_genome/{sample}.summary.tsv"
 
     log:
-        "logs/modkit/{sample}.summary.log"
+        "logs/modkit_genome/{sample}.summary.log"
 
-    threads: 4
+    threads: 1
 
     shell:
         """
-        mkdir -p logs/modkit
+        mkdir -p logs/modkit_genome
 
-        singularity exec -B {BIND} {MODKIT_SIF} \
-        modkit summary \
+        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        {DORADO_SIF} \
+        {MODKIT} summary \
             --threads {threads} \
             --tsv \
             {input.bam} > {output.tsv} 2> {log}
         """
-
 
 # =========================================================
 # 7. FILTERBED  <-- thresholds in config/config.yaml
@@ -390,13 +413,13 @@ rule modkit_summary:
 # =========================================================
 rule filterbed:
     input:
-        bed="results/modkit/{sample}.raw.bed"
+        bed="results/modkit_genome/{sample}.raw.bed"
 
     output:
-        bed="results/bedMethyl/{sample}.filtered.bed"
+        bed="results/bedMethyl_genome/{sample}.filtered.bed"
 
     log:
-        "logs/filterbed/{sample}.log"
+        "logs/filterbed_genome/{sample}.log"
 
     wildcard_constraints:
         sample="|".join(re.escape(s) for s in SAMPLES)
@@ -407,13 +430,13 @@ rule filterbed:
 
     shell:
         """
-        mkdir -p results/bedMethyl logs/filterbed
+        mkdir -p results/bedMethyl_genome logs/filterbed_genome
 
         awk 'NR==1 || $1~/^#/ || ($5 >= {params.min_coverage} && $11 >= {params.mod_pct})' \
             {input.bed} > {output.bed} 2> {log}
 
-        echo "Raw:      $(grep -vc '^#' {input.bed}  || echo 0)" >> {log}
-        echo "Filtered: $(grep -vc '^#' {output.bed} || echo 0)" >> {log}
+        echo "Raw (post modkit):           $(grep -vc '^#' {input.bed}   || echo 0)" >> {log}
+        echo "Filtrate (cov>={params.min_coverage}, mod>={params.mod_pct}%): $(grep -vc '^#' {output.bed} || echo 0)" >> {log}
         """
 
 
@@ -439,45 +462,45 @@ rule filterbed:
 # =========================================================
 rule splitbed:
     input:
-        bed="results/bedMethyl/{sample}.filtered.bed"
+        bed="results/bedMethyl_genome/{sample}.filtered.bed"
 
     output:
-        m5C   ="results/bedMethyl/{sample}.m5C.filtered.bed",
-        m6A   ="results/bedMethyl/{sample}.m6A.filtered.bed",
-        inosine="results/bedMethyl/{sample}.inosine.filtered.bed",
-        pseU  ="results/bedMethyl/{sample}.pseU.filtered.bed",
-        ome2C ="results/bedMethyl/{sample}.2OmeC.filtered.bed",
-        ome2A ="results/bedMethyl/{sample}.2OmeA.filtered.bed",
-        ome2G ="results/bedMethyl/{sample}.2OmeG.filtered.bed",
-        ome2U ="results/bedMethyl/{sample}.2OmeU.filtered.bed"
+        m5C    ="results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed",
+        m6A    ="results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed",
+        inosine="results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed",
+        pseU   ="results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed",
+        OmeC   ="results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed",
+        OmeA   ="results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed",
+        OmeG   ="results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed",
+        OmeU   ="results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed"
 
     log:
-        "logs/splitbed/{sample}.log"
+        "logs/splitbed_genome/{sample}.log"
 
     wildcard_constraints:
         sample="|".join(re.escape(s) for s in SAMPLES)
 
     shell:
         """
-        mkdir -p logs/splitbed
+        mkdir -p results/bedMethyl_genome/{wildcards.sample} logs/splitbed_genome
 
-        grep -w 'm'     {input.bed} > {output.m5C}    2>> {log} || touch {output.m5C}
-        grep -w 'a'     {input.bed} > {output.m6A}    2>> {log} || touch {output.m6A}
-        grep -w '17596' {input.bed} > {output.inosine} 2>> {log} || touch {output.inosine}
-        grep -w '17802' {input.bed} > {output.pseU}   2>> {log} || touch {output.pseU}
-        grep -w '19228' {input.bed} > {output.ome2C}  2>> {log} || touch {output.ome2C}
-        grep -w '69426' {input.bed} > {output.ome2A}  2>> {log} || touch {output.ome2A}
-        grep -w '19229' {input.bed} > {output.ome2G}  2>> {log} || touch {output.ome2G}
-        grep -w '19227' {input.bed} > {output.ome2U}  2>> {log} || touch {output.ome2U}
+        awk '$4 == "m"'     {input.bed} > {output.m5C}     || touch {output.m5C}
+        awk '$4 == "a"'     {input.bed} > {output.m6A}     || touch {output.m6A}
+        awk '$4 == "17596"' {input.bed} > {output.inosine} || touch {output.inosine}
+        awk '$4 == "17802"' {input.bed} > {output.pseU}    || touch {output.pseU}
+        awk '$4 == "19228"' {input.bed} > {output.OmeC}    || touch {output.OmeC}
+        awk '$4 == "69426"' {input.bed} > {output.OmeA}    || touch {output.OmeA}
+        awk '$4 == "19229"' {input.bed} > {output.OmeG}    || touch {output.OmeG}
+        awk '$4 == "19227"' {input.bed} > {output.OmeU}    || touch {output.OmeU}
 
-        echo "m5C:     $(wc -l < {output.m5C})"    >> {log}
-        echo "m6A:     $(wc -l < {output.m6A})"    >> {log}
+        echo "m5C:   $(wc -l < {output.m5C})"     >> {log}
+        echo "m6A:   $(wc -l < {output.m6A})"     >> {log}
         echo "inosine: $(wc -l < {output.inosine})" >> {log}
-        echo "pseU:    $(wc -l < {output.pseU})"   >> {log}
-        echo "2OmeC:   $(wc -l < {output.ome2C})"  >> {log}
-        echo "2OmeA:   $(wc -l < {output.ome2A})"  >> {log}
-        echo "2OmeG:   $(wc -l < {output.ome2G})"  >> {log}
-        echo "2OmeU:   $(wc -l < {output.ome2U})"  >> {log}
+        echo "pseU:  $(wc -l < {output.pseU})"    >> {log}
+        echo "2OmeC: $(wc -l < {output.OmeC})"    >> {log}
+        echo "2OmeA: $(wc -l < {output.OmeA})"    >> {log}
+        echo "2OmeG: $(wc -l < {output.OmeG})"    >> {log}
+        echo "2OmeU: $(wc -l < {output.OmeU})"    >> {log}
         """
 
 
@@ -487,74 +510,389 @@ rule splitbed:
 rule qc_report:
     input:
         bam_unaligned="results/basecalled/{sample}/{sample}.merged.unaligned.bam",
-        bam          ="results/bams/{sample}/{sample}.bam",
-        bai          ="results/bams/{sample}/{sample}.bam.bai",
-        summary      ="results/modkit/{sample}.summary.tsv",
-        sample_probs ="results/sample_probs/{sample}/probabilities.tsv",
-        raw          ="results/modkit/{sample}.raw.bed",
-        filtered     ="results/bedMethyl/{sample}.filtered.bed",
-        m5C          ="results/bedMethyl/{sample}.m5C.filtered.bed",
-        m6A          ="results/bedMethyl/{sample}.m6A.filtered.bed",
-        inosine      ="results/bedMethyl/{sample}.inosine.filtered.bed",
-        pseU         ="results/bedMethyl/{sample}.pseU.filtered.bed",
-        ome2C        ="results/bedMethyl/{sample}.2OmeC.filtered.bed",
-        ome2A        ="results/bedMethyl/{sample}.2OmeA.filtered.bed",
-        ome2G        ="results/bedMethyl/{sample}.2OmeG.filtered.bed",
-        ome2U        ="results/bedMethyl/{sample}.2OmeU.filtered.bed"
+        bam          ="results/bams_genome/{sample}/{sample}.bam",
+        bai          ="results/bams_genome/{sample}/{sample}.bam.bai",
+        summary      ="results/modkit_genome/{sample}.summary.tsv",
+        sample_probs ="results/sample_probs_genome/{sample}/probabilities.tsv",
+        raw          ="results/modkit_genome/{sample}.raw.bed",
+        filtered     ="results/bedMethyl_genome/{sample}.filtered.bed",
+        m5C          ="results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed",
+        m6A          ="results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed",
+        inosine      ="results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed",
+        pseU         ="results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed",
+        2OmeC        ="results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed",
+        2OmeA        ="results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed",
+        2OmeG        ="results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed",
+        2OmeU        ="results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed"
 
     output:
-        report="results/qc/{sample}.qc_summary.txt"
+        report="results/qc_genome/{sample}.qc_summary.txt"
 
     log:
-        "logs/qc/{sample}.log"
+        "logs/qc_genome/{sample}.log"
 
     conda:
         "env/minimap.yaml"
 
-    threads: 2
+    threads: 1
 
     shell:
         """
-        mkdir -p results/qc
+        mkdir -p results/qc_genome
 
         {{
         echo "===== QC SUMMARY — {wildcards.sample} ====="
-        echo "Date: $(date)"
+        echo "Data: $(date)"
         echo ""
 
-        echo "--- Total reads (unaligned BAM) ---"
+        echo "--- Reads totali (BAM non allineato) ---"
         echo "Reads: $(samtools view -c -@ {threads} {input.bam_unaligned})"
         echo ""
 
-        echo "--- Alignment (flagstat) ---"
+        echo "--- Allineamento genomico (flagstat) ---"
         samtools flagstat --threads {threads} {input.bam}
         echo ""
 
-        echo "--- Reads per chromosome (idxstats, top 25) ---"
+        echo "--- Distribuzione reads per cromosoma (idxstats) ---"
+        echo "chr | length | mapped | unmapped"
         samtools idxstats {input.bam} | sort -k3 -rn | head -25 || true
         echo ""
 
-        echo "--- Modification probabilities (sample-probs) ---"
+        echo "--- Probabilità modificazioni (sample-probs) ---"
         cat {input.sample_probs}
         echo ""
 
-        echo "--- Modified sites ---"
+        echo "--- Posizioni modificate ---"
         echo "Raw:      $(grep -vc '^#' {input.raw}      || true)"
-        echo "Filtered: $(grep -vc '^#' {input.filtered} || true)"
+        echo "Filtrate: $(grep -vc '^#' {input.filtered} || true)"
+        echo "m5C:      $(wc -l < {input.m5C})"
+        echo "m6A:      $(wc -l < {input.m6A})"
+        echo "inosine:      $(wc -l < {input.inosine})"
+        echo "pseU:      $(wc -l < {input.pseU})"
+        echo "2OmeC:      $(wc -l < {input.2OmeC})"
+        echo "2OmeA:      $(wc -l < {input.2OmeA})"  
+        echo "2OmeG:      $(wc -l < {input.2OmeG})"
+        echo "2OmeU:      $(wc -l < {input.2OmeU})"                      
         echo ""
 
-        echo "--- Sites per modification type ---"
-        echo "m5C:     $(wc -l < {input.m5C})"
-        echo "m6A:     $(wc -l < {input.m6A})"
-        echo "inosine: $(wc -l < {input.inosine})"
-        echo "pseU:    $(wc -l < {input.pseU})"
-        echo "2OmeC:   $(wc -l < {input.ome2C})"
-        echo "2OmeA:   $(wc -l < {input.ome2A})"
-        echo "2OmeG:   $(wc -l < {input.ome2G})"
-        echo "2OmeU:   $(wc -l < {input.ome2U})"
-        echo ""
-
-        echo "--- modkit summary ---"
+        echo "--- Riepilogo modificazioni (modkit summary) ---"
         cat {input.summary}
         }} > {output.report} 2> {log}
         """
+
+
+# =========================================================
+# =========================================================
+# TRASCRITTOME ALIGNED BRANCH
+# Identycal to the genomuc branch but with optimizations for transcriptomic alignment.
+# =========================================================
+# =========================================================
+
+# =========================================================
+# 3t. MINIMAP2 ALLINEAMENTO — TRASCRITTOMA
+#
+# Differences from genomic:
+# - target: FASTA trasnctipts (config["transcriptome"])
+# - -ax map-ont:    optimized fot ONT
+# - No -uf:         not relevant for transcriptome
+# - No --junc-bed:  not relevant for transcriptome
+# - No -G:          no introns
+# =========================================================
+rule minimap2_align_transcriptome:
+    input:
+        bam          ="results/basecalled/{sample}/{sample}.merged.unaligned.bam",
+        transcriptome=config["transcriptome"]
+
+    output:
+        bam="results/bams_transcriptome/{sample}/{sample}.bam",
+        bai="results/bams_transcriptome/{sample}/{sample}.bam.bai"
+
+    log:
+        "logs/minimap2_transcriptome/{sample}.log"
+
+    conda:
+        "env/minimap.yaml"
+
+    threads: 4
+
+    shell:
+        """
+        mkdir -p results/bams_transcriptome/{wildcards.sample} logs/minimap2_transcriptome
+
+        samtools bam2fq --threads {threads} -T MM,ML,pt \
+            {input.bam} 2>> {log} | \
+        minimap2 \
+            -ax map-ont \
+            -k14 \
+            -L \
+            --secondary=no \
+            --MD \
+            -y \
+            -t {threads} \
+            {input.transcriptome} - 2>> {log} | \
+        samtools sort --threads {threads} -o {output.bam} 2>> {log}
+
+        samtools index -@ {threads} {output.bam} 2>> {log}
+        """
+
+
+# =========================================================
+# 4t. MODKIT SAMPLE-PROBS — TRANSCRIPTOME
+# =========================================================
+rule sample_probs_transcriptome:
+    input:
+        bam="results/bams_transcriptome/{sample}/{sample}.bam",
+        bai="results/bams_transcriptome/{sample}/{sample}.bam.bai"
+
+    output:
+        probs      ="results/sample_probs_transcriptome/{sample}/probabilities.tsv",
+        thresholds ="results/sample_probs_transcriptome/{sample}/thresholds.tsv",
+        counts_html="results/sample_probs_transcriptome/{sample}/counts.html",
+        prop_html  ="results/sample_probs_transcriptome/{sample}/proportion.html"
+
+    log:
+        "logs/sample_probs_transcriptome/{sample}.log"
+
+    params:
+        outdir="results/sample_probs_transcriptome/{sample}"
+
+    threads: 1
+
+    shell:
+        """
+        mkdir -p {params.outdir} logs/sample_probs_transcriptome
+
+        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        {DORADO_SIF} \
+        {MODKIT} sample-probs \
+            --hist \
+            --threads {threads} \
+            --out-dir {params.outdir} \
+            {input.bam} \
+        2> {log}
+        """
+
+
+# =========================================================
+# 5t. MODKIT PILEUP — TRANSCRIPTOME
+# =========================================================
+rule modkit_pileup_transcriptome:
+    input:
+        bam="results/bams_transcriptome/{sample}/{sample}.bam",
+        bai="results/bams_transcriptome/{sample}/{sample}.bam.bai"
+
+    output:
+        bed="results/modkit_transcriptome/{sample}.raw.bed"
+
+    log:
+        "logs/modkit_transcriptome/{sample}.log"
+
+    params:
+        outdir="results/modkit_transcriptome",
+        transcriptome =config["transcriptome"]
+
+    threads: 1
+
+    shell:
+        """
+        mkdir -p {params.outdir} logs/modkit_transcriptome
+
+        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        {DORADO_SIF} \
+        {MODKIT} pileup \
+            --mod-threshold m:0.99 \
+            --modified-bases C:m \
+            --ref {params.transcriptome} \
+            --preload-references \
+            -t {threads} \
+            {input.bam} {output.bed} \
+            --log-filepath {log}
+        """
+
+
+# =========================================================
+# 6t. MODKIT SUMMARY — TRANSCRIPTOME
+# =========================================================
+rule modkit_summary_transcriptome:
+    input:
+        bam="results/bams_transcriptome/{sample}/{sample}.bam",
+        bai="results/bams_transcriptome/{sample}/{sample}.bam.bai"
+
+    output:
+        tsv="results/modkit_transcriptome/{sample}.summary.tsv"
+
+    log:
+        "logs/modkit_transcriptome/{sample}.summary.log"
+
+    threads: 1
+
+    shell:
+        """
+        mkdir -p logs/modkit_transcriptome
+
+        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        {DORADO_SIF} \
+        {MODKIT} summary \
+            --threads {threads} \
+            --tsv \
+            {input.bam} > {output.tsv} 2> {log}
+        """
+
+
+# =========================================================
+# 7t. FILTERBED — TRANSCRIPTOME
+# =========================================================
+rule filterbed_transcriptome:
+    input:
+        bed="results/modkit_transcriptome/{sample}.raw.bed"
+
+    output:
+        bed="results/bedMethyl_transcriptome/{sample}.filtered.bed"
+
+    log:
+        "logs/filterbed_transcriptome/{sample}.log"
+
+    wildcard_constraints:
+        sample="|".join(re.escape(s) for s in SAMPLES)
+
+    params:
+        min_coverage=config["min_coverage"],
+        mod_pct     =config["mod_pct"]
+
+    shell:
+        """
+        mkdir -p results/bedMethyl_transcriptome logs/filterbed_transcriptome
+
+        awk 'NR==1 || $1~/^#/ || ($5 >= {params.min_coverage} && $11 >= {params.mod_pct})' \
+            {input.bed} > {output.bed} 2> {log}
+
+        echo "Raw (post modkit):           $(grep -vc '^#' {input.bed}   || echo 0)" >> {log}
+        echo "Filtrate (cov>={params.min_coverage}, mod>={params.mod_pct}%): $(grep -vc '^#' {output.bed} || echo 0)" >> {log}
+        """
+
+
+# =========================================================
+# 8t. SPLITBED — TRANSCRIPTOME
+# =========================================================
+rule splitbed_transcriptome:
+    input:
+        bed="results/bedMethyl_transcriptome/{sample}.filtered.bed"
+
+    output:
+        m5C    ="results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed",
+        m6A    ="results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed",
+        inosine="results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed",
+        pseU   ="results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed",
+        OmeC   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed",
+        OmeA   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed",
+        OmeG   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed",
+        OmeU   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed"
+
+    log:
+        "logs/splitbed_transcriptome/{sample}.log"
+
+    wildcard_constraints:
+        sample="|".join(re.escape(s) for s in SAMPLES)
+
+    shell:
+        """
+        mkdir -p results/bedMethyl_transcriptome/{wildcards.sample} logs/splitbed_transcriptome
+
+        awk '$4 == "m"'     {input.bed} > {output.m5C}     || touch {output.m5C}
+        awk '$4 == "a"'     {input.bed} > {output.m6A}     || touch {output.m6A}
+        awk '$4 == "17596"' {input.bed} > {output.inosine} || touch {output.inosine}
+        awk '$4 == "17802"' {input.bed} > {output.pseU}    || touch {output.pseU}
+        awk '$4 == "19228"' {input.bed} > {output.OmeC}    || touch {output.OmeC}
+        awk '$4 == "69426"' {input.bed} > {output.OmeA}    || touch {output.OmeA}
+        awk '$4 == "19229"' {input.bed} > {output.OmeG}    || touch {output.OmeG}
+        awk '$4 == "19227"' {input.bed} > {output.OmeU}    || touch {output.OmeU}
+
+        echo "m5C:   $(wc -l < {output.m5C})"     >> {log}
+        echo "m6A:   $(wc -l < {output.m6A})"     >> {log}
+        echo "inosine: $(wc -l < {output.inosine})" >> {log}
+        echo "pseU:  $(wc -l < {output.pseU})"    >> {log}
+        echo "2OmeC: $(wc -l < {output.OmeC})"    >> {log}
+        echo "2OmeA: $(wc -l < {output.OmeA})"    >> {log}
+        echo "2OmeG: $(wc -l < {output.OmeG})"    >> {log}
+        echo "2OmeU: $(wc -l < {output.OmeU})"    >> {log}
+        """
+
+
+# =========================================================
+# 9t. QC REPORT — TRANSCRIPTOME
+# =========================================================
+rule qc_report_transcriptome:
+    input:
+        bam_unaligned="results/basecalled/{sample}/{sample}.merged.unaligned.bam",
+        bam          ="results/bams_transcriptome/{sample}/{sample}.bam",
+        bai          ="results/bams_transcriptome/{sample}/{sample}.bam.bai",
+        summary      ="results/modkit_transcriptome/{sample}.summary.tsv",
+        sample_probs ="results/sample_probs_transcriptome/{sample}/probabilities.tsv",
+        raw          ="results/modkit_transcriptome/{sample}.raw.bed",
+        filtered     ="results/bedMethyl_transcriptome/{sample}.filtered.bed",
+        m5C          ="results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed",
+        m6A          ="results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed",
+        inosine      ="results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed",
+        pseU         ="results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed",
+        2OmeC        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed",
+        2OmeA        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed",
+        2OmeG        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed",
+        2OmeU        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed"
+
+    output:
+        report="results/qc_transcriptome/{sample}.qc_summary.txt"
+
+    log:
+        "logs/qc_transcriptome/{sample}.log"
+
+    conda:
+        "env/minimap.yaml"
+
+    threads: 1
+
+    shell:
+        """
+        mkdir -p results/qc_transcriptome
+
+        {{
+        echo "===== QC SUMMARY TRASCRITTOMA — {wildcards.sample} ====="
+        echo "Data: $(date)"
+        echo ""
+
+        echo "--- Reads totali (BAM non allineato) ---"
+        echo "Reads: $(samtools view -c -@ {threads} {input.bam_unaligned})"
+        echo ""
+
+        echo "--- Allineamento trascrittomico (flagstat) ---"
+        samtools flagstat --threads {threads} {input.bam}
+        echo ""
+
+        echo "--- Distribuzione reads per trascritto (idxstats) ---"
+        echo "transcript | length | mapped | unmapped"
+        samtools idxstats {input.bam} | sort -k3 -rn | head -25 || true
+        echo ""
+
+        echo "--- Probabilità modificazioni (sample-probs) ---"
+        cat {input.sample_probs}
+        echo ""
+
+        echo "--- Posizioni modificate ---"
+        echo "Raw:      $(grep -vc '^#' {input.raw}      || true)"
+        echo "Filtrate: $(grep -vc '^#' {input.filtered} || true)"
+        echo "m5C:      $(wc -l < {input.m5C})"
+        echo "m6A:      $(wc -l < {input.m6A})"
+        echo "m5C:      $(wc -l < {input.m5C})"
+        echo "m6A:      $(wc -l < {input.m6A})"
+        echo "inosine:      $(wc -l < {input.inosine})"
+        echo "pseU:      $(wc -l < {input.pseU})"
+        echo "2OmeC:      $(wc -l < {input.2OmeC})"
+        echo "2OmeA:      $(wc -l < {input.2OmeA})"  
+        echo "2OmeG:      $(wc -l < {input.2OmeG})"
+        echo "2OmeU:      $(wc -l < {input.2OmeU})"                              
+        echo ""
+
+        echo "--- Riepilogo modificazioni (modkit summary) ---"
+        cat {input.summary}
+        }} > {output.report} 2> {log}
+        """
+
