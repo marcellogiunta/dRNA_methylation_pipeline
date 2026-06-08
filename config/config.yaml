@@ -1,62 +1,46 @@
-# config/config.yaml — dRNA methylation pipeline
-# ================================================================
-# Edit the paths below to match your system.
-#
-# Modification selection and modkit pileup thresholds are set
-# directly in the Snakefile (rule modkit_pileup, marked <-- EDIT).
-#
-# Only filterbed thresholds (min_coverage, mod_pct) are here
-# because they are meant to be changed without touching the code.
-# ================================================================
+# config/config.yaml — pipeline DOGME-style
+# Modifica i valori con <-- MODIFICA
 
-# ================================================================
-# SINGULARITY
-# ================================================================
-singularity_bind: "/SAN/vyplab:/SAN/vyplab"
+# Container Singularity with Dorado 
+dorado_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-dorado-1.4.0.sif"  
 
-dorado_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-dorado-1.4.0.sif"
-modkit_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/ontresearch-modkit-0.6.1.sif"
-
-# ================================================================
-# DORADO MODEL
-# Full model names required when using --models-directory.
-# ================================================================
+# Modello Dorado — identico a quello usato da Laurens su stessi dati
+# sup@v5.3.0 + tutte le modificazioni RNA
 dorado_model: "rna004_130bps_sup@v5.3.0,rna004_130bps_sup@v5.3.0_inosine_m6A_2OmeA@v1,rna004_130bps_sup@v5.3.0_m5C_2OmeC@v1,rna004_130bps_sup@v5.3.0_pseU_2OmeU@v1,rna004_130bps_sup@v5.3.0_2OmeG@v1"
-
-# Local directory for pre-downloaded dorado models.
-# Populated automatically by rule dorado_models_download.
 dorado_models_dir: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_models"
 
-# ================================================================
-# REFERENCE FILES
-# ================================================================
-genome:  "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/GRCh38.p14.genome.fa"
-gtf:     "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.primary_assembly.annotation.gtf"
+modkit_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-modkit-0.6.1.sif"  
+modkit_bin: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/dist_modkit_v0.6.3_2273723/modkit"
 
-# Junction BED for splice-aware alignment (pre-existing).
-# Generate once with: paftools.js gff2bed annotation.gtf > annotation.junc.bed
-gtf_bed: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.basic.annotation.junc.bed"
+# Reference genome/transcriptome
+genome: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/GRCh38.p14.genome.fa"
+transcriptome: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.transcripts.fa"
 
-# ================================================================
-# FILTERBED THRESHOLDS
-# Applied a posteriori on the raw modkit pileup BED.
-# Change these values and re-run filterbed without re-running pileup:
-#   snakemake --forcerun filterbed
-#
-# min_coverage: minimum number of valid reads covering a site
-#               (col 5 of modkit pileup BED)
-# mod_pct:      minimum percentage of modified reads per site
-#               (col 11 of modkit pileup BED, range 0-100)
-# ================================================================
-min_coverage: 5
-mod_pct:      5
+# GTF  Gencode 
+gtf: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.primary_assembly.annotation.gtf"   # <-- MODIFICA
 
-# ================================================================
-# SAMPLES
-# Format: sample_name: /path/to/pod5/directory/
-# Pod5 files must be organised in separate directories per sample.
-# ================================================================
+# Kallisto index
+kallisto_index: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/references/gencode.v49.transcripts.kallisto.k63.idx"
+
+# Junc BED
+gtf_bed: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/references/gencode.v49.basic.annotation.junc.bed"
+
+# Kallisto lengths
+kallisto_frag_len: 
+kallisto_frag_sdd:
+
+# Soglie modkit (come DOGME)
+filter_threshold: 0.8   # probabilità minima modifica canonical bases
+mod_threshold: 0.99        # 
+min_coverage: 0        # copertura minima di reads
+mod_pct: 0             # % methylation
+
+# Samples: nome → cartella contenente i file pod5
 samples:
   knockout_01: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20240822_1308_P2S-02348-B_PBA04080_06f9e9d5/pod5/"
-  # knockout_02: "/path/to/knockout_02/pod5/"
-  # control_01:  "/path/to/control_01/pod5/"
+  knockout_02: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20241017_1626_1B_PBA05425_818c70f5/"
+  knockout_03: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20241017_1626_1D_PAY81951_83b1f8a8/"
+  ctrl_03: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20240722_1300_3B_PAY13358_b7c02696/"
+  ctrl_02: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20241017_1626_1C_PAY83919_2e7473ff/"
+  ctrl_01: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20241017_1626_1A_PBA05389_10a62e82/"
+
