@@ -1,41 +1,36 @@
-# config/config.yaml — pipeline DOGME-style
-# Modifica i valori con <-- MODIFICA
+# config/config.yaml 
+
+singularity_bind: "/SAN/vyplab:/SAN/vyplab"
 
 # Container Singularity with Dorado 
 dorado_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-dorado-1.4.0.sif"  
 
-# Modello Dorado — identico a quello usato da Laurens su stessi dati
-# sup@v5.3.0 + tutte le modificazioni RNA
+# Dorado models
+
 dorado_model: "rna004_130bps_sup@v5.3.0,rna004_130bps_sup@v5.3.0_inosine_m6A_2OmeA@v1,rna004_130bps_sup@v5.3.0_m5C_2OmeC@v1,rna004_130bps_sup@v5.3.0_pseU_2OmeU@v1,rna004_130bps_sup@v5.3.0_2OmeG@v1"
 dorado_models_dir: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_models"
 
-modkit_sif: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/ontresearch-modkit-0.6.1.sif"  
-modkit_bin: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/dist_modkit_v0.6.3_2273723/modkit"
+modkit_bin: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/singularity/dist_modkit_v0.6.4_cd85862/modkit"
 
 # Reference genome/transcriptome
 genome: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/GRCh38.p14.genome.fa"
 transcriptome: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.transcripts.fa"
 
 # GTF  Gencode 
-gtf: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.primary_assembly.annotation.gtf"   # <-- MODIFICA
+gtf: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/dorado_first_trial/resources/gencode.v49.primary_assembly.annotation.gtf"   
 
-# Kallisto index
-kallisto_index: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/references/gencode.v49.transcripts.kallisto.k63.idx"
 
 # Junc BED
 gtf_bed: "/SAN/vyplab/first_weeks/recalled_nanopore/Marcello/references/gencode.v49.basic.annotation.junc.bed"
 
-# Kallisto lengths
-kallisto_frag_len: 
-kallisto_frag_sdd:
 
-# Soglie modkit (come DOGME)
-filter_threshold: 0.8   # probabilità minima modifica canonical bases
-mod_threshold: 0.99        # 
-min_coverage: 0        # copertura minima di reads
-mod_pct: 0             # % methylation
+# Thresholds modkit 
+filter_threshold: 0.8   
+mod_threshold: 0.99        
+min_coverage: 0        
+mod_pct: 0             
 
-# Samples: nome → cartella contenente i file pod5
+# Samples:
 samples:
   knockout_01: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20240822_1308_P2S-02348-B_PBA04080_06f9e9d5/pod5/"
   knockout_02: "/SAN/vyplab/NYGC_ALSFTD/nanopore_pod5/20241017_1626_1B_PBA05425_818c70f5/"
