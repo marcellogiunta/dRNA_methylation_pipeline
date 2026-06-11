@@ -29,10 +29,10 @@ from pathlib import Path
 #
 # ================================================================
 
-configfile: "config/config.yaml"
+ configfile: "config/config.yaml"
 
 DORADO_SIF = config["dorado_sif"]
-MODKIT_SIF = config["modkit_sif"]
+MODKIT = config["modkit_bin"]
 BIND       = config["singularity_bind"]
 
 
@@ -65,31 +65,32 @@ JOB_POD5 = {
 # =========================================================
 rule all:
     input:
-        ##GENOME ALIGNED
-        expand("results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed",      sample=SAMPLES),
-        expand("results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed",      sample=SAMPLES),
-        expand("results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed",     sample=SAMPLES),
-        expand("results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed",  sample=SAMPLES),
-        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed",       sample=SAMPLES),
-        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed",       sample=SAMPLES),
-        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed",       sample=SAMPLES),
-        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed",       sample=SAMPLES),
+        # BED filtrati e separati per tipo di modifica
+        expand("results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed.gz",      sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed.gz",      sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed.gz",     sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed.gz",  sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed.gz",       sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed.gz",       sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed.gz",       sample=SAMPLES),
+        expand("results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed.gz",       sample=SAMPLES),
+        # Sample probs (QC modificazioni)
         expand("results/sample_probs_genome/{sample}/probabilities.tsv",  sample=SAMPLES),
+        # QC report finale
         expand("results/qc_genome/{sample}.qc_summary.txt",               sample=SAMPLES),
-        
-        ##TRANSCRIPTOME ALIGNED
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed",      sample=SAMPLES),
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed",      sample=SAMPLES),
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed",     sample=SAMPLES),
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed",  sample=SAMPLES),
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed",       sample=SAMPLES),
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed",       sample=SAMPLES),
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed",       sample=SAMPLES),
-        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed",       sample=SAMPLES),
+        # BED filtrati e separati per tipo di modifica — trascrittoma
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed.gz",      sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed.gz",      sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed.gz",     sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed.gz",  sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed.gz",       sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed.gz",       sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed.gz",       sample=SAMPLES),
+        expand("results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed.gz",       sample=SAMPLES),
+        # Sample probs (QC modificazioni) — trascrittoma
         expand("results/sample_probs_transcriptome/{sample}/probabilities.tsv",  sample=SAMPLES),
+        # QC report finale — trascrittoma
         expand("results/qc_transcriptome/{sample}.qc_summary.txt",               sample=SAMPLES)
-
-
 
 
 # =========================================================
@@ -147,15 +148,7 @@ rule dorado_models_download:
 # =========================================================
 rule dorado_basecall:
     input:
-        pod5=lambda wc: JOB_POD5[(wc.sample, wc.basename)],
-        # ensures models are downloaded before basecalling starts
-        models=expand(
-            config["dorado_models_dir"] + "/rna004_130bps_sup@v5.3.0_{mod}",
-            mod=["m5C_2OmeC@v1",
-                 "inosine_m6A_2OmeA@v1",
-                 "pseU_2OmeU@v1",
-                 "2OmeG@v1"]
-        )
+        pod5=lambda wc: JOB_POD5[(wc.sample, wc.basename)]
 
     output:
         bam=temp("results/basecalled/{sample}/{basename}.unaligned.bam")
@@ -164,8 +157,8 @@ rule dorado_basecall:
         "logs/dorado/{sample}_{basename}.log"
 
     params:
-        model     =config["dorado_model"],
-        models_dir=config["dorado_models_dir"]
+        model=config["dorado_model"],
+        models_dir =config["dorado_models_dir"]
 
     threads: 2
 
@@ -181,7 +174,7 @@ rule dorado_basecall:
             --emit-moves \
             --estimate-poly-a \
             --batchsize 64 \
-            --device cuda:0 \
+            --device cuda:auto \
             --models-directory {params.models_dir} \
         > {output.bam} 2>> {log}
         """
@@ -206,7 +199,7 @@ rule merge_unaligned_bam:
     conda:
         "env/minimap.yaml"
 
-    threads: 8
+    threads: 1
 
     shell:
         """
@@ -299,7 +292,7 @@ rule sample_probs:
         """
         mkdir -p {params.outdir} logs/sample_probs_genome
 
-        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        singularity exec -B {BIND} \
         {DORADO_SIF} \
         {MODKIT} sample-probs \
             --hist \
@@ -345,7 +338,7 @@ rule modkit_pileup:
         bai="results/bams_genome/{sample}/{sample}.bam.bai"
 
     output:
-        bed="results/modkit_genome/{sample}.raw.bed"
+        bed="results/modkit_genome/{sample}.raw.bed.gz"
 
     log:
         "logs/modkit_genome/{sample}.log"
@@ -361,12 +354,13 @@ rule modkit_pileup:
         mkdir -p {params.outdir} logs/modkit_genome
 
         
-        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        singularity exec -B {BIND} \
         {DORADO_SIF} \
         {MODKIT} pileup \
             --mod-threshold m:0.99 \
             --modified-bases C:m \
             --reference {params.genome} \
+            --bgzf \
             -t {threads} \
             {input.bam} {output.bed} \
             --log-filepath {log}
@@ -392,7 +386,7 @@ rule modkit_summary:
         """
         mkdir -p logs/modkit_genome
 
-        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        singularity exec -B {BIND} \
         {DORADO_SIF} \
         {MODKIT} summary \
             --threads {threads} \
@@ -413,10 +407,10 @@ rule modkit_summary:
 # =========================================================
 rule filterbed:
     input:
-        bed="results/modkit_genome/{sample}.raw.bed"
+        bed="results/modkit_genome/{sample}.raw.bed.gz"
 
     output:
-        bed="results/bedMethyl_genome/{sample}.filtered.bed"
+        bed="results/bedMethyl_genome/{sample}.filtered.bed.gz"
 
     log:
         "logs/filterbed_genome/{sample}.log"
@@ -431,12 +425,13 @@ rule filterbed:
     shell:
         """
         mkdir -p results/bedMethyl_genome logs/filterbed_genome
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | \
+        awk 'NR==1 || $1~/^#/ || ($5 >= {params.min_coverage} && $11 >= {params.mod_pct})' | \
+        singularity exec -B {BIND} {DORADO_SIF} bgzip -c \
+        > {output.bed} 2> {log}
 
-        awk 'NR==1 || $1~/^#/ || ($5 >= {params.min_coverage} && $11 >= {params.mod_pct})' \
-            {input.bed} > {output.bed} 2> {log}
-
-        echo "Raw (post modkit):           $(grep -vc '^#' {input.bed}   || echo 0)" >> {log}
-        echo "Filtrate (cov>={params.min_coverage}, mod>={params.mod_pct}%): $(grep -vc '^#' {output.bed} || echo 0)" >> {log}
+        echo "Raw:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | grep -vc '^#' || echo 0)" >> {log}
+        echo "Filtered: $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.bed} | grep -vc '^#' || echo 0)" >> {log}
         """
 
 
@@ -462,17 +457,17 @@ rule filterbed:
 # =========================================================
 rule splitbed:
     input:
-        bed="results/bedMethyl_genome/{sample}.filtered.bed"
+        bed="results/bedMethyl_genome/{sample}.filtered.bed.gz"
 
     output:
-        m5C    ="results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed",
-        m6A    ="results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed",
-        inosine="results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed",
-        pseU   ="results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed",
-        OmeC   ="results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed",
-        OmeA   ="results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed",
-        OmeG   ="results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed",
-        OmeU   ="results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed"
+        m5C    ="results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed.gz",
+        m6A    ="results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed.gz",
+        inosine="results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed.gz",
+        pseU   ="results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed.gz",
+        OmeC   ="results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed.gz",
+        OmeA   ="results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed.gz",
+        OmeG   ="results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed.gz",
+        OmeU   ="results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed.gz"
 
     log:
         "logs/splitbed_genome/{sample}.log"
@@ -484,23 +479,23 @@ rule splitbed:
         """
         mkdir -p results/bedMethyl_genome/{wildcards.sample} logs/splitbed_genome
 
-        awk '$4 == "m"'     {input.bed} > {output.m5C}     || touch {output.m5C}
-        awk '$4 == "a"'     {input.bed} > {output.m6A}     || touch {output.m6A}
-        awk '$4 == "17596"' {input.bed} > {output.inosine} || touch {output.inosine}
-        awk '$4 == "17802"' {input.bed} > {output.pseU}    || touch {output.pseU}
-        awk '$4 == "19228"' {input.bed} > {output.OmeC}    || touch {output.OmeC}
-        awk '$4 == "69426"' {input.bed} > {output.OmeA}    || touch {output.OmeA}
-        awk '$4 == "19229"' {input.bed} > {output.OmeG}    || touch {output.OmeG}
-        awk '$4 == "19227"' {input.bed} > {output.OmeU}    || touch {output.OmeU}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "m"'     | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.m5C}     || touch {output.m5C}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "a"'     | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.m6A}     || touch {output.m6A}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "17596"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.inosine} || touch {output.inosine}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "17802"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.pseU}    || touch {output.pseU}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "19228"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeC}    || touch {output.OmeC}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "69426"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeA}    || touch {output.OmeA}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "19229"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeG}    || touch {output.OmeG}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "19227"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeU}    || touch {output.OmeU}
 
-        echo "m5C:   $(wc -l < {output.m5C})"     >> {log}
-        echo "m6A:   $(wc -l < {output.m6A})"     >> {log}
-        echo "inosine: $(wc -l < {output.inosine})" >> {log}
-        echo "pseU:  $(wc -l < {output.pseU})"    >> {log}
-        echo "2OmeC: $(wc -l < {output.OmeC})"    >> {log}
-        echo "2OmeA: $(wc -l < {output.OmeA})"    >> {log}
-        echo "2OmeG: $(wc -l < {output.OmeG})"    >> {log}
-        echo "2OmeU: $(wc -l < {output.OmeU})"    >> {log}
+        echo "m5C:     $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.m5C}     | wc -l)" >> {log}
+        echo "m6A:     $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.m6A}     | wc -l)" >> {log}
+        echo "inosine: $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.inosine} | wc -l)" >> {log}
+        echo "pseU:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.pseU}    | wc -l)" >> {log}
+        echo "2OmeC:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeC}    | wc -l)" >> {log}
+        echo "2OmeA:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeA}    | wc -l)" >> {log}
+        echo "2OmeG:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeG}    | wc -l)" >> {log}
+        echo "2OmeU:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeU}    | wc -l)" >> {log}
         """
 
 
@@ -514,16 +509,16 @@ rule qc_report:
         bai          ="results/bams_genome/{sample}/{sample}.bam.bai",
         summary      ="results/modkit_genome/{sample}.summary.tsv",
         sample_probs ="results/sample_probs_genome/{sample}/probabilities.tsv",
-        raw          ="results/modkit_genome/{sample}.raw.bed",
-        filtered     ="results/bedMethyl_genome/{sample}.filtered.bed",
-        m5C          ="results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed",
-        m6A          ="results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed",
-        inosine      ="results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed",
-        pseU         ="results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed",
-        2OmeC        ="results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed",
-        2OmeA        ="results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed",
-        2OmeG        ="results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed",
-        2OmeU        ="results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed"
+        raw          ="results/modkit_genome/{sample}.raw.bed.gz",
+        filtered     ="results/bedMethyl_genome/{sample}.filtered.bed.gz",
+        m5C          ="results/bedMethyl_genome/{sample}/{sample}.m5C.filtered.bed.gz",
+        m6A          ="results/bedMethyl_genome/{sample}/{sample}.m6A.filtered.bed.gz",
+        inosine      ="results/bedMethyl_genome/{sample}/{sample}.inosine.filtered.bed.gz",
+        pseU         ="results/bedMethyl_genome/{sample}/{sample}.pseU.filtered.bed.gz",
+        OmeC        ="results/bedMethyl_genome/{sample}/{sample}.2OmeC.filtered.bed.gz",
+        OmeA        ="results/bedMethyl_genome/{sample}/{sample}.2OmeA.filtered.bed.gz",
+        OmeG        ="results/bedMethyl_genome/{sample}/{sample}.2OmeG.filtered.bed.gz",
+        OmeU        ="results/bedMethyl_genome/{sample}/{sample}.2OmeU.filtered.bed.gz"
 
     output:
         report="results/qc_genome/{sample}.qc_summary.txt"
@@ -542,40 +537,40 @@ rule qc_report:
 
         {{
         echo "===== QC SUMMARY — {wildcards.sample} ====="
-        echo "Data: $(date)"
+        echo "Date: $(date)"
         echo ""
 
-        echo "--- Reads totali (BAM non allineato) ---"
+        echo "--- Total reads (BAM non allineato) ---"
         echo "Reads: $(samtools view -c -@ {threads} {input.bam_unaligned})"
         echo ""
 
-        echo "--- Allineamento genomico (flagstat) ---"
+        echo "--- Genomic alignment  (flagstat) ---"
         samtools flagstat --threads {threads} {input.bam}
         echo ""
 
-        echo "--- Distribuzione reads per cromosoma (idxstats) ---"
+        echo "--- Reads per  chromosome (idxstats) ---"
         echo "chr | length | mapped | unmapped"
         samtools idxstats {input.bam} | sort -k3 -rn | head -25 || true
         echo ""
 
-        echo "--- Probabilità modificazioni (sample-probs) ---"
+        echo "--- Modifications probabilities (sample-probs) ---"
         cat {input.sample_probs}
         echo ""
 
         echo "--- Posizioni modificate ---"
-        echo "Raw:      $(grep -vc '^#' {input.raw}      || true)"
-        echo "Filtrate: $(grep -vc '^#' {input.filtered} || true)"
-        echo "m5C:      $(wc -l < {input.m5C})"
-        echo "m6A:      $(wc -l < {input.m6A})"
-        echo "inosine:      $(wc -l < {input.inosine})"
-        echo "pseU:      $(wc -l < {input.pseU})"
-        echo "2OmeC:      $(wc -l < {input.2OmeC})"
-        echo "2OmeA:      $(wc -l < {input.2OmeA})"  
-        echo "2OmeG:      $(wc -l < {input.2OmeG})"
-        echo "2OmeU:      $(wc -l < {input.2OmeU})"                      
+        echo "Raw:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.raw}       | grep -vc '^#'  || true)"
+        echo "Filtrate: $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.filtered}  | grep -vc '^#'  || true)"
+        echo "m5C:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.m5C}       | wc -l)"
+        echo "m6A:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.m6A}       | wc -l)"
+        echo "inosine:  $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.inosine}   | wc -l)"
+        echo "pseU:     $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.pseU}      | wc -l)"
+        echo "2OmeC:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeC}      | wc -l)"
+        echo "2OmeA:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeA}      | wc -l)"  
+        echo "2OmeG:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeG}      | wc -l)"
+        echo "2OmeU:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeU}      | wc -l)"                      
         echo ""
 
-        echo "--- Riepilogo modificazioni (modkit summary) ---"
+        echo "--- Summary modifications (modkit summary) ---"
         cat {input.summary}
         }} > {output.report} 2> {log}
         """
@@ -662,7 +657,7 @@ rule sample_probs_transcriptome:
         """
         mkdir -p {params.outdir} logs/sample_probs_transcriptome
 
-        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        singularity exec -B {BIND} \
         {DORADO_SIF} \
         {MODKIT} sample-probs \
             --hist \
@@ -682,7 +677,7 @@ rule modkit_pileup_transcriptome:
         bai="results/bams_transcriptome/{sample}/{sample}.bam.bai"
 
     output:
-        bed="results/modkit_transcriptome/{sample}.raw.bed"
+        bed="results/modkit_transcriptome/{sample}.raw.bed.gz"
 
     log:
         "logs/modkit_transcriptome/{sample}.log"
@@ -697,13 +692,14 @@ rule modkit_pileup_transcriptome:
         """
         mkdir -p {params.outdir} logs/modkit_transcriptome
 
-        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        singularity exec -B {BIND} \
         {DORADO_SIF} \
         {MODKIT} pileup \
             --mod-threshold m:0.99 \
             --modified-bases C:m \
             --ref {params.transcriptome} \
             --preload-references \
+            --bgzf \
             -t {threads} \
             {input.bam} {output.bed} \
             --log-filepath {log}
@@ -730,7 +726,7 @@ rule modkit_summary_transcriptome:
         """
         mkdir -p logs/modkit_transcriptome
 
-        singularity exec -B /SAN/vyplab:/SAN/vyplab \
+        singularity exec -B {BIND} \
         {DORADO_SIF} \
         {MODKIT} summary \
             --threads {threads} \
@@ -744,10 +740,10 @@ rule modkit_summary_transcriptome:
 # =========================================================
 rule filterbed_transcriptome:
     input:
-        bed="results/modkit_transcriptome/{sample}.raw.bed"
+        bed="results/modkit_transcriptome/{sample}.raw.bed.gz"
 
     output:
-        bed="results/bedMethyl_transcriptome/{sample}.filtered.bed"
+        bed="results/bedMethyl_transcriptome/{sample}.filtered.bed.gz"
 
     log:
         "logs/filterbed_transcriptome/{sample}.log"
@@ -763,11 +759,13 @@ rule filterbed_transcriptome:
         """
         mkdir -p results/bedMethyl_transcriptome logs/filterbed_transcriptome
 
-        awk 'NR==1 || $1~/^#/ || ($5 >= {params.min_coverage} && $11 >= {params.mod_pct})' \
-            {input.bed} > {output.bed} 2> {log}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | \
+        awk 'NR==1 || $1~/^#/ || ($5 >= {params.min_coverage} && $11 >= {params.mod_pct})' | \
+        singularity exec -B {BIND} {DORADO_SIF} bgzip -c \
+        > {output.bed} 2> {log}
 
-        echo "Raw (post modkit):           $(grep -vc '^#' {input.bed}   || echo 0)" >> {log}
-        echo "Filtrate (cov>={params.min_coverage}, mod>={params.mod_pct}%): $(grep -vc '^#' {output.bed} || echo 0)" >> {log}
+        echo "Raw:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | grep -vc '^#' || echo 0)" >> {log}
+        echo "Filtered: $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.bed} | grep -vc '^#' || echo 0)" >> {log}
         """
 
 
@@ -776,17 +774,17 @@ rule filterbed_transcriptome:
 # =========================================================
 rule splitbed_transcriptome:
     input:
-        bed="results/bedMethyl_transcriptome/{sample}.filtered.bed"
+        bed="results/bedMethyl_transcriptome/{sample}.filtered.bed.gz"
 
     output:
-        m5C    ="results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed",
-        m6A    ="results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed",
-        inosine="results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed",
-        pseU   ="results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed",
-        OmeC   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed",
-        OmeA   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed",
-        OmeG   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed",
-        OmeU   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed"
+        m5C    ="results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed.gz",
+        m6A    ="results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed.gz",
+        inosine="results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed.gz",
+        pseU   ="results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed.gz",
+        OmeC   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed.gz",
+        OmeA   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed.gz",
+        OmeG   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed.gz",
+        OmeU   ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed.gz"
 
     log:
         "logs/splitbed_transcriptome/{sample}.log"
@@ -798,23 +796,23 @@ rule splitbed_transcriptome:
         """
         mkdir -p results/bedMethyl_transcriptome/{wildcards.sample} logs/splitbed_transcriptome
 
-        awk '$4 == "m"'     {input.bed} > {output.m5C}     || touch {output.m5C}
-        awk '$4 == "a"'     {input.bed} > {output.m6A}     || touch {output.m6A}
-        awk '$4 == "17596"' {input.bed} > {output.inosine} || touch {output.inosine}
-        awk '$4 == "17802"' {input.bed} > {output.pseU}    || touch {output.pseU}
-        awk '$4 == "19228"' {input.bed} > {output.OmeC}    || touch {output.OmeC}
-        awk '$4 == "69426"' {input.bed} > {output.OmeA}    || touch {output.OmeA}
-        awk '$4 == "19229"' {input.bed} > {output.OmeG}    || touch {output.OmeG}
-        awk '$4 == "19227"' {input.bed} > {output.OmeU}    || touch {output.OmeU}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "m"'     | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.m5C}     || touch {output.m5C}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "a"'     | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.m6A}     || touch {output.m6A}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "17596"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.inosine} || touch {output.inosine}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "17802"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.pseU}    || touch {output.pseU}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "19228"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeC}    || touch {output.OmeC}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "69426"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeA}    || touch {output.OmeA}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "19229"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeG}    || touch {output.OmeG}
+        singularity exec -B {BIND} {DORADO_SIF} zcat {input.bed} | awk '$4 == "19227"' | singularity exec -B {BIND} {DORADO_SIF} bgzip -c > {output.OmeU}    || touch {output.OmeU}
 
-        echo "m5C:   $(wc -l < {output.m5C})"     >> {log}
-        echo "m6A:   $(wc -l < {output.m6A})"     >> {log}
-        echo "inosine: $(wc -l < {output.inosine})" >> {log}
-        echo "pseU:  $(wc -l < {output.pseU})"    >> {log}
-        echo "2OmeC: $(wc -l < {output.OmeC})"    >> {log}
-        echo "2OmeA: $(wc -l < {output.OmeA})"    >> {log}
-        echo "2OmeG: $(wc -l < {output.OmeG})"    >> {log}
-        echo "2OmeU: $(wc -l < {output.OmeU})"    >> {log}
+        echo "m5C:     $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.m5C}     | wc -l)" >> {log}
+        echo "m6A:     $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.m6A}     | wc -l)" >> {log}
+        echo "inosine: $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.inosine} | wc -l)" >> {log}
+        echo "pseU:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.pseU}    | wc -l)" >> {log}
+        echo "2OmeC:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeC}    | wc -l)" >> {log}
+        echo "2OmeA:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeA}    | wc -l)" >> {log}
+        echo "2OmeG:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeG}    | wc -l)" >> {log}
+        echo "2OmeU:   $(singularity exec -B {BIND} {DORADO_SIF} zcat {output.OmeU}    | wc -l)" >> {log}
         """
 
 
@@ -828,16 +826,16 @@ rule qc_report_transcriptome:
         bai          ="results/bams_transcriptome/{sample}/{sample}.bam.bai",
         summary      ="results/modkit_transcriptome/{sample}.summary.tsv",
         sample_probs ="results/sample_probs_transcriptome/{sample}/probabilities.tsv",
-        raw          ="results/modkit_transcriptome/{sample}.raw.bed",
-        filtered     ="results/bedMethyl_transcriptome/{sample}.filtered.bed",
-        m5C          ="results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed",
-        m6A          ="results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed",
-        inosine      ="results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed",
-        pseU         ="results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed",
-        2OmeC        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed",
-        2OmeA        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed",
-        2OmeG        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed",
-        2OmeU        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed"
+        raw          ="results/modkit_transcriptome/{sample}.raw.bed.gz",
+        filtered     ="results/bedMethyl_transcriptome/{sample}.filtered.bed.gz",
+        m5C          ="results/bedMethyl_transcriptome/{sample}/{sample}.m5C.filtered.bed.gz",
+        m6A          ="results/bedMethyl_transcriptome/{sample}/{sample}.m6A.filtered.bed.gz",
+        inosine      ="results/bedMethyl_transcriptome/{sample}/{sample}.inosine.filtered.bed.gz",
+        pseU         ="results/bedMethyl_transcriptome/{sample}/{sample}.pseU.filtered.bed.gz",
+        OmeC        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeC.filtered.bed.gz",
+        OmeA        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeA.filtered.bed.gz",
+        OmeG        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeG.filtered.bed.gz",
+        OmeU        ="results/bedMethyl_transcriptome/{sample}/{sample}.2OmeU.filtered.bed.gz"
 
     output:
         report="results/qc_transcriptome/{sample}.qc_summary.txt"
@@ -859,39 +857,37 @@ rule qc_report_transcriptome:
         echo "Data: $(date)"
         echo ""
 
-        echo "--- Reads totali (BAM non allineato) ---"
+        echo "--- Total reads (BAM non allineato) ---"
         echo "Reads: $(samtools view -c -@ {threads} {input.bam_unaligned})"
         echo ""
 
-        echo "--- Allineamento trascrittomico (flagstat) ---"
+        echo "--- Transcriptomic alignment (flagstat) ---"
         samtools flagstat --threads {threads} {input.bam}
         echo ""
 
-        echo "--- Distribuzione reads per trascritto (idxstats) ---"
+        echo "--- Reads  per transcript (idxstats) ---"
         echo "transcript | length | mapped | unmapped"
         samtools idxstats {input.bam} | sort -k3 -rn | head -25 || true
         echo ""
 
-        echo "--- Probabilità modificazioni (sample-probs) ---"
+        echo "--- Mods probabilities (sample-probs) ---"
         cat {input.sample_probs}
         echo ""
 
         echo "--- Posizioni modificate ---"
-        echo "Raw:      $(grep -vc '^#' {input.raw}      || true)"
-        echo "Filtrate: $(grep -vc '^#' {input.filtered} || true)"
-        echo "m5C:      $(wc -l < {input.m5C})"
-        echo "m6A:      $(wc -l < {input.m6A})"
-        echo "m5C:      $(wc -l < {input.m5C})"
-        echo "m6A:      $(wc -l < {input.m6A})"
-        echo "inosine:      $(wc -l < {input.inosine})"
-        echo "pseU:      $(wc -l < {input.pseU})"
-        echo "2OmeC:      $(wc -l < {input.2OmeC})"
-        echo "2OmeA:      $(wc -l < {input.2OmeA})"  
-        echo "2OmeG:      $(wc -l < {input.2OmeG})"
-        echo "2OmeU:      $(wc -l < {input.2OmeU})"                              
+        echo "Raw:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.raw}       | grep -vc '^#'  || true)"
+        echo "Filtrate: $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.filtered}  | grep -vc '^#'  || true)"
+        echo "m5C:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.m5C}       | wc -l)"
+        echo "m6A:      $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.m6A}       | wc -l)"
+        echo "inosine:  $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.inosine}   | wc -l)"
+        echo "pseU:     $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.pseU}      | wc -l)"
+        echo "2OmeC:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeC}      | wc -l)"
+        echo "2OmeA:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeA}      | wc -l)"  
+        echo "2OmeG:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeG}      | wc -l)"
+        echo "2OmeU:    $(singularity exec -B {BIND} {DORADO_SIF} zcat {input.OmeU}      | wc -l)"                      
         echo ""
 
-        echo "--- Riepilogo modificazioni (modkit summary) ---"
+        echo "--- Summary modifications (modkit summary) ---"
         cat {input.summary}
         }} > {output.report} 2> {log}
         """
