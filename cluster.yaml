@@ -6,6 +6,12 @@ __default__:
   h_rt: "02:00:00"
   submission_string: ""
 
+  dorado_models_download:
+  tmem: "8G"
+  h_vmem: "8G"
+  h_rt: "2:00:00"
+  submission_string: ""
+
 
 dorado_basecall:
   tmem: "100G"
@@ -21,8 +27,8 @@ merge_unaligned_bam:
 
 
 minimap2_align:
-  tmem: "100G"
-  h_vmem: "100G"
+  tmem: "32G"
+  h_vmem: "32G"
   h_rt: "20:00:00"
   submission_string: "-pe smp 4 -R y"
 
@@ -34,14 +40,14 @@ sample_probs:
   submission_string: ""
 
 modkit_pileup:
-  tmem: "64G"
-  h_vmem: "64G"
+  tmem: "32G"
+  h_vmem: "32G"
   h_rt: "24:00:00"
   submission_string: ""
 
 modkit_summary:
-  tmem: "80G"
-  h_vmem: "80G"
+  tmem: "32G"
+  h_vmem: "32G"
   h_rt: "02:00:00"
   submission_string: ""
 
@@ -67,8 +73,8 @@ qc_report:
 
 
 minimap2_align_transcriptome:
-  tmem: "250G"
-  h_vmem: "250G"
+  tmem: "32G"
+  h_vmem: "32G"
   h_rt: "20:00:00"
   submission_string: ""
 
@@ -80,14 +86,14 @@ sample_probs_transcriptome:
   submission_string: ""
 
 modkit_pileup_transcriptome:
-  tmem: "64G"
-  h_vmem: "64G"
+  tmem: "32G"
+  h_vmem: "32G"
   h_rt: "24:00:00"
   submission_string: ""
 
 modkit_summary_transcriptome:
-  tmem: "80G"
-  h_vmem: "80G"
+  tmem: "32G"
+  h_vmem: "32G"
   h_rt: "05:00:00"
   submission_string: ""
 
